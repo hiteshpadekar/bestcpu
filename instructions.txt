@@ -1,2 +1,10 @@
 st R5, 384
 ld 384, R1
+push R1
+push bp
+push sp
+push pc
+pop R1
+pop bp
+pop sp
+pop pc

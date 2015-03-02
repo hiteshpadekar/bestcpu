@@ -22,7 +22,6 @@ unsigned int R8;
 unsigned int R9;
 unsigned int R10;
 unsigned int R11;
-unsigned int R11;
 unsigned int R12;
 unsigned int R13;
 unsigned int R14;
@@ -78,32 +77,45 @@ enum flags{
 unsigned char show_memory = 1;
 
 /* Opcodes */
-#define STORE_MEMORY 3
-#define LOAD_MEMORY 4
+enum OPCODE{
+
+	STORE_MEMORY 	= 3,
+	LOAD_MEMORY 	= 4,
+	ADD		= 5,
+	SUB		= 6,
+	MUL		= 7,
+	DIV		= 8,
+	MOD		= 9,
+	PUSH	= 10,
+	POP		= 11
+};
 
 
-#define DATA_MEMORY_BASE 384
-#define INSTR_MEMORY_BASE 128
-#define BOOT_MEMORY_BASE 0
+#define STACK_BOTTOM 		896
+#define STACK_TOP 			1024
+#define STACK_MEMORY_BASE 	896
+#define DATA_MEMORY_BASE	384
+#define INSTR_MEMORY_BASE 	128
+#define BOOT_MEMORY_BASE 	0
 
-/* Read Register index */ 
-enum ReadRegister{
-	Index_R0 =0,
-	Index_R1,
-	Index_R2,
-	Index_R3,
-	Index_R4,
-	Index_R5,
-	Index_R6,
-	Index_R7,
-	Index_R8,
-	Index_R9,
-	Index_R10,
-	Index_R11,
-	Index_R12,
-	Index_R13,
-	Index_R14,
-	Index_R15
+/* CPU Register index */ 
+enum CPURegisterIndex{
+
+	Index_R0 =0,	Index_R1,	Index_R2,	Index_R3,
+	Index_R4,		Index_R5,	Index_R6,	Index_R7,
+	Index_R8,		Index_R9,	Index_R10,	Index_R11,
+	Index_R12,		Index_R13,	Index_R14,	Index_R15,
+
+	Index_R16 = 16,	Index_R17,	Index_R18,	Index_R19,
+	Index_R20,		Index_R21,	Index_R22,	Index_R23,
+	Index_R24,		Index_R25,	Index_R26,	Index_R27,
+	Index_R28,		Index_R29,	Index_R30,	Index_R31,
+
+	Index_BP = 32,
+	Index_SP = 33,
+	Index_PC = 34,
+
+	Index_INVALID
 };
 
 
@@ -172,13 +184,26 @@ int print_cpu_state(void)
 		printf("\tData Memory\n");
 		printf("*******************************************************\n");
 		printf("Address    \t\tMemory\n");
-		for (i = DATA_MEMORY_BASE; i < 1024; i = i+16)
+		for (i = DATA_MEMORY_BASE; i < STACK_MEMORY_BASE; i = i+16)
 		{
 		    printf("%06d   %02X %02X %02X %02X  ", i, memory[i], memory[i+1], memory[i+2], memory[i+3]);
 		    printf("%02X %02X %02X %02X  ", memory[i+4], memory[i+5], memory[i+6], memory[i+7]);
 		    printf("%02X %02X %02X %02X  ", memory[i+8], memory[i+9], memory[i+10], memory[i+11]);
 		    printf("%02X %02X %02X %02X  \n", memory[i+12], memory[i+13], memory[i+14], memory[i+15]);
 		}
+
+		printf("\n*******************************************************\n");
+		printf("\tStack Memory\n");
+		printf("*******************************************************\n");
+		printf("Address    \t\tMemory\n");
+		for (i = STACK_MEMORY_BASE; i < 1024; i = i+16)
+		{
+		    printf("%06d   %02X %02X %02X %02X  ", i, memory[i], memory[i+1], memory[i+2], memory[i+3]);
+		    printf("%02X %02X %02X %02X  ", memory[i+4], memory[i+5], memory[i+6], memory[i+7]);
+		    printf("%02X %02X %02X %02X  ", memory[i+8], memory[i+9], memory[i+10], memory[i+11]);
+		    printf("%02X %02X %02X %02X  \n", memory[i+12], memory[i+13], memory[i+14], memory[i+15]);
+		}
+
 		
 		    printf("\n\n");
 	}
@@ -204,6 +229,26 @@ int readRegister(int reg)
 		case Index_R13: return R13;
 		case Index_R14: return R14;
 		case Index_R15: return R15;
+		case Index_R16: return R16;
+		case Index_R17: return R17;
+		case Index_R18: return R18;
+		case Index_R19: return R19;
+		case Index_R20: return R20;
+		case Index_R21: return R21;
+		case Index_R22: return R22;
+		case Index_R23: return R23;
+		case Index_R24: return R24;
+		case Index_R25: return R25;
+		case Index_R26: return R26;
+		case Index_R27: return R27;
+		case Index_R28: return R28;
+		case Index_R29: return R29;
+		case Index_R30: return R30;
+		case Index_R31: return R31;
+		case Index_SP: return sp;
+		case Index_BP: return bp;
+		case Index_PC: return pc;
+
 		default: printf("$$$$$$$ read reg bug \n\n\n");break;
 	}
 
@@ -215,57 +260,43 @@ void writeRegister(int reg, int value)
 {
 	switch(reg)
 	{ 
-		case Index_R0:
-			R0 = value;
-		break;
-		case Index_R1:
-			R1 = value;
-		break;
-		case Index_R2:
-			R2 = value;
-		break;
-		case Index_R3:
-			R3 = value;
-		break;
-		case Index_R4:
-			R4 = value;
-		break;
-		case Index_R5:
-			R5 = value;
-		break;
-		case Index_R6:
-			R6 = value;
-		break;
+		case Index_R0:			R0 = value;		break;
+		case Index_R1:			R1 = value;		break;
+		case Index_R2:			R2 = value;		break;
+		case Index_R3:			R3 = value;		break;
+		case Index_R4:			R4 = value;		break;
+		case Index_R5:			R5 = value;		break;
+		case Index_R6:			R6 = value;		break;
+		case Index_R7:			R7 = value;		break;
+		case Index_R8:			R8 = value;		break;
+		case Index_R9:			R9 = value;		break;
+		case Index_R10:			R10 = value;		break;
+		case Index_R11:			R11 = value;		break;
+		case Index_R12:			R12 = value;		break;
+		case Index_R13:			R13 = value;		break;
+		case Index_R14:			R14 = value;		break;
+		case Index_R15:			R15 = value;		break;
+		case Index_R16:			R16 = value;		break;
+		case Index_R17:			R17 = value;		break;
+		case Index_R18:			R18 = value;		break;
+		case Index_R19:			R19 = value;		break;
+		case Index_R20:			R20 = value;		break;
+		case Index_R21:			R21 = value;		break;
+		case Index_R22:			R22 = value;		break;
+		case Index_R23:			R23 = value;		break;
+		case Index_R24:			R24 = value;		break;
+		case Index_R25:			R25 = value;		break;
+		case Index_R26:			R26 = value;		break;
+		case Index_R27:			R27 = value;		break;
+		case Index_R28:			R28 = value;		break;
+		case Index_R29:			R29 = value;		break;
+		case Index_R30:			R30 = value;		break;
+		case Index_R31:			R31 = value;		break;
+		case Index_BP:			bp = value;		break;
+		case Index_SP:			sp = value;		break;
+		case Index_PC:			pc = value;		break;
 
-		case Index_R7:
-			R7 = value;
-		break;
-		case Index_R8:
-			R8 = value;
-		break;
-		case Index_R9:
-			R9 = value;
-		break;
-		case Index_R10:
-			R10 = value;
-		break;
-		case Index_R11:
-			R11 = value;
-		break;
-		case Index_R12:
-			R12 = value;
-		break;
-		case Index_R13:
-			R13 = value;
-		break;
-		case Index_R14:
-			R14 = value;
-		break;
-		case Index_R15:
-			R15 = value;
-		break;
-
-		default: 
+		default: printf("$$$$$$$ read reg bug \n\n\n");break;
 		break;
 
 	}
@@ -275,7 +306,7 @@ void writeRegister(int reg, int value)
 void alu_store(int src, int dest)
 {
 	int data = 0;
-	char *ptr = memory;
+	unsigned char *ptr = memory;
 	if (dest < 0) {
 		printf("\n\t##Memory reserved for Bootstrap and Instruction Memory");
 		return;
@@ -290,14 +321,31 @@ void alu_store(int src, int dest)
 void alu_load(int src, int dest)
 {
 	int data = 0;
-	char *ptr = memory;
+	unsigned char *ptr = memory;
 	if (src < 0) {
 		printf("\n\t##Memory reserved for Bootstrap and Instruction memory");
 		return;
 	}	
 	data = *(int *)(ptr + DATA_MEMORY_BASE + src); //reading memory
-	//printf("\n%s:data = %u\n",__FUNCTION__,data);
 	writeRegister(dest, data);
+}
+
+void alu_push(int src)
+{
+	int data = 0;
+	unsigned char *ptr = memory;
+	data = readRegister(src);
+	sp -= 4;
+	*(int*)(ptr + sp) = data;
+}
+
+void alu_pop(int dest)
+{
+	int data = 0;
+	unsigned char *ptr = memory;
+	data = *(int *)(ptr + sp); //reading memory
+	writeRegister(dest, data);
+	sp += 4;
 }
 
 void ALU(char opcode, int src, int dest)
@@ -310,14 +358,17 @@ void ALU(char opcode, int src, int dest)
 	case LOAD_MEMORY:
 		alu_load(src, dest);
 	break;
+	case PUSH:
+		alu_push(src);
+	break;
+	case POP:
+		alu_pop(dest);
+	break;
 	default: 
 		break;
 	}
 
 }
-
-//int readRegister(int);
-//int writeRegister(char[], int);
 
 void usage()
 {
@@ -361,40 +412,29 @@ void execute_one_instr(void)
 	return;
 }
 
-int main(int argc, char **argv)
+void initALU(void)
 {
+	sp = STACK_TOP;
+	pc = INSTR_MEMORY_BASE;
+	writeRegister(Index_R5, 10);
+}
 
-	int  temp = 0,  value = 0, i = 0, count = 0;
+int loader()
+{
+	int  i = 0, count = 0, ret = -1;
+	size_t len = 0;
 	unsigned char opcode = 0, dst = 0, src = 0;
 	char *instr;
 	FILE *file_fd = 0;
-	int bytes_read = 0;
 	char *p1 = NULL, *p2 = NULL, *p3 = NULL;
-	pc = INSTR_MEMORY_BASE;
 
-/*
-	writeRegister(Index_R1, 10);
-	ALU(STORE_MEMORY,Index_R1,DATA_MEMORY_BASE);
-	writeRegister(Index_R2, 15);
-	ALU(STORE_MEMORY,Index_R2,388);
-	writeRegister(Index_R3, 20);
-	ALU(STORE_MEMORY,Index_R3,392);
-	print_cpu_state();
-	ALU(LOAD_MEMORY,DATA_MEMORY_BASE, Index_R5);
-	ALU(LOAD_MEMORY,388, Index_R6);
-	ALU(LOAD_MEMORY,392, Index_R7);
-*/
-
-	writeRegister(Index_R5, 10);
-	instr = malloc(200);
+	instr = (char *) malloc(200);
 	file_fd = fopen("./instructions.txt","r");
-	//bytes_read = read(file_fd, instr, 200);
-	//printf("\n\n\tInstructions are : \n\n%s\n\n", instr);
 
-
-	while( fgets(instr, 20, file_fd))
+	while( (ret = getline(&instr, &len, file_fd)) != -1)
 	{
 		/*Here parse the OPCODE, OPERANDS and perform corresponding operations*/
+		printf("\n\tInstruction = %s", instr);
 
 		p1 = strtok(instr, " ");
 		if (!strcasecmp(p1, "ld")) {
@@ -403,17 +443,47 @@ int main(int argc, char **argv)
 			p3 = strtok(NULL, " ");
 			dst = returnIndex(p3);
 			opcode = LOAD_MEMORY;
-			printf("\n\tDecoded inst : %x %x %x\n", opcode, src, dst);
 		} else if (!strcasecmp(p1, "st")) { 
 			p2 = strtok(NULL, ",");		
 			src = returnIndex(p2);
-			p3 = strtok(NULL, " ");		/* Here loads from Regisger to location*/	
+			p3 = strtok(NULL, " ");		/* Here loads from Register to location*/	
 			dst = atoi(p3) - DATA_MEMORY_BASE;
 			opcode =  STORE_MEMORY;
-			printf("\n\tDecoded inst : %x %x %x\n", opcode, src, dst);
+		} else if (!strcasecmp(p1, "push")) { 
+			p2 = strtok(NULL, " ");
+			if(*p2 == 'R')
+				src = returnIndex(p2);
+			else if (strstr(p2,"bp"))
+				src = Index_BP;
+			else if (strstr(p2,"sp"))
+				src = Index_SP;
+			else if (strstr(p2,"pc"))
+				src = Index_PC;
+
+			opcode =  PUSH;
+
+			dst = Index_INVALID;
+
+		} else if (!strcasecmp(p1, "pop")) { 
+			p2 = strtok(NULL, " ");
+			if(*p2 == 'R')
+				dst = returnIndex(p2);
+			else if (strstr(p2,"bp"))
+				dst = Index_BP;
+			else if (strstr(p2,"sp"))
+				dst = Index_SP;
+			else if (strstr(p2,"pc"))
+				dst = Index_PC;
+
+			opcode =  POP;
+
+			src = Index_INVALID;
+
 		} else {
 			usage();
 		}
+
+		printf("\n\tDecoded inst : %u %u %u\n", opcode, src, dst);
 
 		memory[INSTR_MEMORY_BASE + i] = opcode;
 		i++;
@@ -427,6 +497,17 @@ int main(int argc, char **argv)
 		count++;
 		p1 = strtok(NULL, " ");
 	}
+
+	return count;
+}
+
+int main(int argc, char **argv)
+{
+	int count = 0;
+
+	initALU();
+
+	count = loader();
 
 	printf("\n*******************************************************\n");
 	printf("\tCPU State before execution\n");
